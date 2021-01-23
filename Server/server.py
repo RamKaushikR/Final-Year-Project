@@ -1,38 +1,39 @@
 import numpy as np
+import speech_recognition as sr
 from flask import Flask, request, jsonify
 from speakers import add, remove, predict
-from model import createModel
+from models import createModel
 
 
 app = Flask(__name__)
 
 model = createModel('triplet_conv1d')
+print('Model created')
+
+recognizer = sr.Recognizer()
+print('Recognizer created')
 
 @app.route('/findSpeaker', methods = ['GET', 'POST'])
 def findSpeaker():
-	result = 'Not found'
-
     files = request.files['audio_file']
-#    speaker = request.form['speaker']
-#    print('Speaker to be identified is ' + speaker)
+    audio_text = request.form['audio_text']
 
     files.save('Predict/file.wav')
     print('Received file')
 
-    result = predict(model)
-    print(result)
-
-    r = {'result': result}
+    r = predict(audio_text, model, recognizer)
+    print(r)
     return jsonify(r)
     
 @app.route('/addSpeaker', methods = ['GET', 'POST'])
 def addSpeaker():
-    file = request.files['audio_file']
+    files = request.files['audio_file']
     speaker = request.form['speaker']
+    audio_text = request.form['audio_text']
 
-    file1.save('Speakers/' + speaker + '.wav')
+    files.save('Speakers/' + speaker + '.wav')
     
-    result = add(speaker)
+    result = add(speaker, recognizer, audio_text)
     print(result)
 
     r = {'result': result}

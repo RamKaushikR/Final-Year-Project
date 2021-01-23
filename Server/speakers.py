@@ -4,6 +4,7 @@ import librosa
 import numpy as np
 from kapre.composed import get_melspectrogram_layer
 from tensorflow.keras import backend as K
+import speech_recognition as sr
 
 
 SPEAKERS_PATH = 'Speakers/'
@@ -27,50 +28,92 @@ def spectrogram(audio):
 	audio = np.reshape(audio, (1, audio.shape[0], audio.shape[1]))
 	spec = layer(audio)
 	return spec
+	
+def speechToText(recognizer, path, audio_text):
+	a = sr.AudioFile(path)
+	text = ''
+	
+	with a as source:
+		audio = recognizer.record(source)
+		text = recognizer.recognize_google(audio)
+		
+	text = text.lower()
+	audio_text = audio_text.lower()
+	print(text)
+	
+	pred_dict, audio_dict = {}, {}
+	
+	for word in text:
+		pred_dict[word] = pred_dict[word] + 1 if word in pred_dict else 1
+	for word in audio_text:
+		audio_dict[word] = audio_dict[word] + 1 if word in audio_dict else 1
+		
+	count = 0
+	for word in pred_dict:
+		if word in audio_dict:
+			count += min(audio_dict[word], pred_dict[word])
+				
+	return count / sum(audio_dict.values())
 
-def add(speaker):
-	a, r = librosa.load(SPEAKERS_PATH + speaker + '.wav')
+def add(speaker, recognizer, audio_text):
+	text = speechToText(recognizer, SPEAKERS_PATH+speaker+'.wav', audio_text)
+	if text < 0.75:
+		return 'Text match unsuccessful'
+
+	a, r = librosa.load(SPEAKERS_PATH+speaker+'.wav')
 	a = librosa.resample(a, r, SR)
 	if a.shape[0] < TIME:
-		return -1
+		return 'Invalid File. Talk a little slower'
 		
-	i = np.random.randint(0, a.shape[0] - TIME)
+	i = (a.shape[0] - TIME) // 2#np.random.randint(0, a.shape[0] - TIME)
 	audio = a[i:i+TIME]
 	
-	spec = spectrogram(audio)
+	spec = abs(spectrogram(audio))
 	spec = np.reshape(spec, (spec.shape[1], spec.shape[2]))
 	
-	with open(SPEAKERS_PATH + speaker + '.dat', 'wb') as f:
+	with open(SPEAKERS_PATH+speaker+'.dat', 'wb') as f:
 		pickle.dump(spec, f)
-	os.remove(SPEAKERS_PATH + speaker + '.wav')
+	os.remove(SPEAKERS_PATH+speaker+'.wav')
 	
-	return 1
+	return speaker + ' added successfully'
 	
 def remove(speaker):
-	os.remove(SPEAKERS_PATH + speaker + '.dat')
-	return 1
+	if speaker + '.dat' in os.listdir(SPEAKERS_PATH):
+		os.remove(SPEAKERS_PATH+ speaker+'.dat')
+		return speaker + ' removed successfully'
+		
+	return speaker + ' has not been enrolled'
 	
 def euclideanDistance(inputs):
 	u, v = inputs
 	return K.sqrt(K.sum(K.square(u - v), axis=1, keepdims=True))
 	
-def predict(model):
+def predict(audio_text, model, recognizer):
+	result = {'text': None, 'speaker': None}
 	s = os.listdir(SPEAKERS_PATH)
 	p = os.listdir(PREDICT_PATH)
 	
+	text = speechToText(recognizer, PREDICT_PATH+p[0], audio_text)
+	if text < 0.75:
+		result['text'] = 'Text match unsuccessful'
+	else:
+		result['text'] = 'Text match successful'
+		
 	speakers = []
 	for _ in s:
-		spec = pickle.load(open(SPEAKERS_PATH + _, 'rb'))
+		spec = pickle.load(open(SPEAKERS_PATH+_, 'rb'))
 		spec = np.reshape(spec, SPEC_SHAPE)
 		speakers.append(abs(spec))
 	speakers = np.array(speakers)
 	
-	a, r = librosa.load(PREDICT_PATH + p[0])
+	a, r = librosa.load(PREDICT_PATH+p[0])
 	a = librosa.resample(a, r, SR)
 	if a.shape[0] < TIME:
-		return -1
+		result['text'] = 'Invalid File. Talk a little slower'
+		result['speaker'] = 'Invalid File. Talk a little slower'
+		return result
 		
-	i = np.random.randint(0, a.shape[0] - TIME)
+	i = (a.shape[0] - TIME) // 2#np.random.randint(0, a.shape[0] - TIME)
 	audio = a[i:i+TIME]
 	
 	predict_spec = abs(spectrogram(audio))
@@ -79,10 +122,13 @@ def predict(model):
 	y_true = model.predict(speakers)
 	y_pred = model.predict(predict_spec)
     
-# 	print("y_true:", y_true, y_true.shape)
-# 	print("y_pred:", y_pred, y_pred.shape)
 	dist = euclideanDistance((y_true, y_pred))
 	index = np.argmin(dist)
 	print(dist, s)
 	
-	return s[index][:-4]
+	if dist[index] >= 1.5:
+		result['speaker'] = 'Speaker Not Found'
+	else:
+		result['speaker'] = s[index][:-4] + ' is the identified speaker'
+		
+	return result
