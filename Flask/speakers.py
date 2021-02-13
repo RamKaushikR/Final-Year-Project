@@ -39,13 +39,14 @@ def speechToText(recognizer, path, audio_text):
 		
 	text = text.lower()
 	audio_text = audio_text.lower()
-	print(text)
+	print('Received text is: ' + audio_text)
+	print('Speech to text is: ' + text)
 	
 	pred_dict, audio_dict = {}, {}
 	
-	for word in text:
+	for word in list(text.split(' ')):
 		pred_dict[word] = pred_dict[word] + 1 if word in pred_dict else 1
-	for word in audio_text:
+	for word in list(audio_text.split(' ')):
 		audio_dict[word] = audio_dict[word] + 1 if word in audio_dict else 1
 		
 	count = 0
@@ -56,6 +57,10 @@ def speechToText(recognizer, path, audio_text):
 	return count / sum(audio_dict.values())
 
 def add(speaker, recognizer, audio_text):
+	if speaker + '.dat' in os.listdir(SPEAKERS_PATH):
+		os.remove(SPEAKERS_PATH+speaker+'.wav')
+		return speaker + ' has already been enrolled'
+		
 	text = speechToText(recognizer, SPEAKERS_PATH+speaker+'.wav', audio_text)
 	if text < 0.75:
 		return 'Text match unsuccessful'
@@ -79,7 +84,7 @@ def add(speaker, recognizer, audio_text):
 	
 def remove(speaker):
 	if speaker + '.dat' in os.listdir(SPEAKERS_PATH):
-		os.remove(SPEAKERS_PATH+ speaker+'.dat')
+		os.remove(SPEAKERS_PATH+speaker+'.dat')
 		return speaker + ' removed successfully'
 		
 	return speaker + ' has not been enrolled'
@@ -124,7 +129,7 @@ def predict(audio_text, model, recognizer):
     
 	dist = euclideanDistance((y_true, y_pred))
 	index = np.argmin(dist)
-	print(dist, s)
+	#print(dist, s)
 	
 	if dist[index] >= 1.5:
 		result['speaker'] = 'Speaker Not Found'
