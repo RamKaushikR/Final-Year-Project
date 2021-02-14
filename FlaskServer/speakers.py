@@ -63,11 +63,13 @@ def add(speaker, recognizer, audio_text):
 		
 	text = speechToText(recognizer, SPEAKERS_PATH+speaker+'.wav', audio_text)
 	if text < 0.75:
+		os.remove(SPEAKERS_PATH+speaker+'.wav')
 		return 'Text match unsuccessful'
 
 	a, r = librosa.load(SPEAKERS_PATH+speaker+'.wav')
 	a = librosa.resample(a, r, SR)
 	if a.shape[0] < TIME:
+		os.remove(SPEAKERS_PATH+speaker+'.wav')
 		return 'Invalid File. Talk a little slower'
 		
 	i = (a.shape[0] - TIME) // 2#np.random.randint(0, a.shape[0] - TIME)
