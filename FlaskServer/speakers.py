@@ -56,15 +56,16 @@ def speechToText(recognizer, path, audio_text):
 				
 	return count / sum(audio_dict.values())
 
-def add(speaker, recognizer, audio_text):
+def add(speaker, recognizer, audio_text, dependent):
 	if speaker + '.dat' in os.listdir(SPEAKERS_PATH):
 		os.remove(SPEAKERS_PATH+speaker+'.wav')
 		return speaker + ' has already been enrolled'
-		
-	text = speechToText(recognizer, SPEAKERS_PATH+speaker+'.wav', audio_text)
-	if text < 0.75:
-		os.remove(SPEAKERS_PATH+speaker+'.wav')
-		return 'Text match unsuccessful'
+
+	if dependent == 'True':
+		text = speechToText(recognizer, SPEAKERS_PATH+speaker+'.wav', audio_text)
+		if text < 0.70:
+			os.remove(SPEAKERS_PATH+speaker+'.wav')
+			return 'Text match unsuccessful'
 
 	a, r = librosa.load(SPEAKERS_PATH+speaker+'.wav')
 	a = librosa.resample(a, r, SR)
@@ -95,17 +96,18 @@ def euclideanDistance(inputs):
 	u, v = inputs
 	return K.sqrt(K.sum(K.square(u - v), axis=1, keepdims=True))
 	
-def predict(audio_text, model, recognizer):
-	result = {'text': None, 'speaker': None}
+def predict(audio_text, model, threshold, recognizer, dependent):
+	result = {'text': '', 'speaker': ''}
 	s = os.listdir(SPEAKERS_PATH)
 	p = os.listdir(PREDICT_PATH)
 	
-	text = speechToText(recognizer, PREDICT_PATH+p[0], audio_text)
-	if text < 0.75:
-		result['text'] = 'Text match unsuccessful'
-	else:
-		result['text'] = 'Text match successful'
-		
+	if dependent == 'True':
+		text = speechToText(recognizer, PREDICT_PATH+p[0], audio_text)
+		if text < 0.75:
+			result['text'] = 'Text match unsuccessful'
+		else:
+			result['text'] = 'Text match successful'
+
 	speakers = []
 	for _ in s:
 		spec = pickle.load(open(SPEAKERS_PATH+_, 'rb'))
@@ -117,7 +119,7 @@ def predict(audio_text, model, recognizer):
 	a = librosa.resample(a, r, SR)
 	if a.shape[0] < TIME:
 		result['text'] = 'Invalid File. Talk a little slower'
-		result['speaker'] = 'Invalid File. Talk a little slower'
+		result['speaker'] = ''
 		return result
 		
 	i = (a.shape[0] - TIME) // 2#np.random.randint(0, a.shape[0] - TIME)
@@ -131,9 +133,9 @@ def predict(audio_text, model, recognizer):
     
 	dist = euclideanDistance((y_true, y_pred))
 	index = np.argmin(dist)
-	#print(dist, s)
+	print(dist, s)
 	
-	if dist[index] >= 1.5:
+	if dist[index] >= threshold:
 		result['speaker'] = 'Speaker Not Found'
 	else:
 		result['speaker'] = s[index][:-4] + ' is the identified speaker'

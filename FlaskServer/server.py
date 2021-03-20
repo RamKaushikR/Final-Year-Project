@@ -11,6 +11,7 @@ from models import createModel
 app = Flask(__name__)
 
 model = createModel('triplet_conv1d')
+threshold = 0.6
 print('Model created')
 
 recognizer = sr.Recognizer()
@@ -20,11 +21,12 @@ print('Recognizer created')
 def findSpeaker():
     files = request.files['audio_file']
     audio_text = request.form['audio_text']
+    dependent = request.form['dependent']
 
     files.save('Predict/file.wav')
     print('Received file')
 
-    r = predict(audio_text, model, recognizer)
+    r = predict(audio_text, model, threshold, recognizer, dependent)
     print(r)
     return jsonify(r)
     
@@ -33,10 +35,11 @@ def addSpeaker():
     files = request.files['audio_file']
     speaker = request.form['speaker']
     audio_text = request.form['audio_text']
+    dependent = request.form['dependent']
 
     files.save('Speakers/' + speaker + '.wav')
     
-    result = add(speaker, recognizer, audio_text)
+    result = add(speaker, recognizer, audio_text, dependent)
     print(result)
 
     r = {'result': result}
