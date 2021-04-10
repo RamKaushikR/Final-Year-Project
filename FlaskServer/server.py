@@ -11,7 +11,7 @@ from models import createModel
 app = Flask(__name__)
 
 model = createModel('triplet_conv1d')
-threshold = 0.6
+threshold = 1.1
 print('Model created')
 
 recognizer = sr.Recognizer()

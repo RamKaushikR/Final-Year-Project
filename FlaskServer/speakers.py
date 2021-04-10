@@ -103,7 +103,7 @@ def predict(audio_text, model, threshold, recognizer, dependent):
 	
 	if dependent == 'True':
 		text = speechToText(recognizer, PREDICT_PATH+p[0], audio_text)
-		if text < 0.75:
+		if text < 0.6:
 			result['text'] = 'Text match unsuccessful'
 		else:
 			result['text'] = 'Text match successful'
